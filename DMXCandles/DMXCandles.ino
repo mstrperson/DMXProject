@@ -2,7 +2,7 @@
 #include <Thread.h>
 #include <DMXSerial.h>
 
-#define DMX_ADDRESS 501
+#define DMX_ADDRESS 500
 
 #define WHOOSH_THRESHOLD 128
 
@@ -17,7 +17,10 @@ Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_RGB + NEO_KHZ800);
 
 int loopCount = 0;
 
-bool whooshState = false;
+int whooshState = 0;
+// 0 : Steady
+// 1 : WHOOSH
+// 2 : Reset
 
 int lastReadValue = 0;
 //bool connectionEstablished = false;
@@ -102,23 +105,53 @@ void candleWhooshState()
   }
 }
 
+void resetState()
+{
+  pixels.setBrightness(255);
+  for(int i = 0; i < NUMPIXELS; i++)
+  {
+    candle(i);
+    pixels.show();
+    delay(100);
+  }
+  whooshState = 0;
+}
+
 void loop() 
 {
-  if(DMXSerial.receive())
+  if(DMXSerial.noDataSince() < 5000)
   {
+    #ifdef DEBUG
+    pixels.setPixelColor(0, pixels.Color(0, 0, 255));
+    pixels.show();
+    delay(100);
+    #endif
     int newVal = DMXSerial.read(DMX_ADDRESS);
     if(newVal > WHOOSH_THRESHOLD && lastReadValue < WHOOSH_THRESHOLD)
     {
-      whooshState = true;
+      whooshState = 1;
     }
-    else
+    else if(newVal < WHOOSH_THRESHOLD && lastReadValue > WHOOSH_THRESHOLD)
     {
-      whooshState = false;
+      whooshState = 2;
     }
+    lastReadValue = newVal;
   }
-  if(whooshState)
+  #ifdef DEBUG
+  else
+  {
+    pixels.setPixelColor(0, pixels.Color(0, 255, 0));
+    pixels.show();
+    delay(100);
+  }
+  #endif
+  if(whooshState == 1)
   {
     candleWhooshState();
+  }
+  else if(whooshState == 2)
+  {
+    resetState();
   }
   else
   {
