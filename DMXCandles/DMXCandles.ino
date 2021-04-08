@@ -3,29 +3,46 @@
 #include <DMXSerial.h>
 
 #define DEBUG 1
+
+// Change this to match the DMX Address Number printed on the side of the Arduino box.
 #define DMX_ADDRESS 501
 
+// 0-255 the value from the Lightboard which triggers the WHOOSH state
 #define WHOOSH_THRESHOLD 128
 
+// NeoPixels are wired to Pin 6.
 #define PIN 6
+
+// Number of Neopixels on the chain.  (currently 3px * 3 candles)
 #define NUMPIXELS 9
 
+// define the NeoPixel object.
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_RGB + NEO_KHZ800);
 
+
+// Some constants you can use to tweak the hue of the candles.
 #define RED_MIN 180
 #define RED_MAX 255
 #define YELLOW_MAX 30
 
+// Loop count (affects the timing of the random flickers)
 int loopCount = 0;
 
-int whooshState = 0;
+// the current state of the system.  Default is Steady State, flickering candles.
+int currentState = 0;
+
+// Define the Constant values for each of the system States.
+#define STEADY_STATE 0
+#define WHOOSH_STATE 1
+#define RESET_STATE 2
 // 0 : Steady
 // 1 : WHOOSH
 // 2 : Reset
 
+// keep track of the last Value read on the DMX Serial connection.
 int lastReadValue = 0;
-//bool connectionEstablished = false;
 
+// Random flickers in the candle, random occurrance in the steady state.
 void doFlicker()
 {
   for(int i = 0; i < 20; i++)
@@ -40,6 +57,7 @@ void doFlicker()
   }
 }
 
+// This is the steady state candle setting.  Each third LED has a particular behavior pattern.
 void candle(int n)
 {
   if(n%3==0)
@@ -73,6 +91,7 @@ void setup() {
   
 }
 
+// Steady state for the system.
 void steadyState()
 {
   if(loopCount++ % 5 == 0 && random(100) > 50)
@@ -93,6 +112,7 @@ void steadyState()
   }
 }
 
+// When the DMX instructions go HIGH, sweep candles off from first to last.
 void candleWhooshState()
 {
   pixels.setBrightness(255);
@@ -102,10 +122,13 @@ void candleWhooshState()
   {
     pixels.setPixelColor(i, pixels.Color(0, 0, 0));
     pixels.show();
+
+// ****** CHANGE THIS DELAY TO ALTER THE TIMING OF THE WHOOSH *****
     delay(100);
   }
 }
 
+// Going back from the WHOOSH to steady state.  Re-light the LEDS from first to last
 void resetState()
 {
   pixels.setBrightness(255);
@@ -113,45 +136,60 @@ void resetState()
   {
     candle(i);
     pixels.show();
+// ****** CHANGE THIS DELAY TO ALTER THE TIMING OF THE WHOOSH *****
     delay(100);
   }
-  whooshState = 0;
+  currentState = STEADY_STATE;
 }
 
 void loop() 
 {
+  // Check to make sure the DMX is connected...
   if(DMXSerial.noDataSince() < 5000)
   {
-    #ifdef DEBUG
+    
+#ifdef DEBUG
+    // Debug, show a blue LED if we are debugging.
     pixels.setPixelColor(0, pixels.Color(0, 0, 255));
     pixels.show();
     delay(100);
-    #endif
+#endif
+
+    // read the latest value from the DMX Serial connection
     int newVal = DMXSerial.read(DMX_ADDRESS);
+
+    // If we have transitioned from LOW to HIGH...
     if(newVal > WHOOSH_THRESHOLD && lastReadValue < WHOOSH_THRESHOLD)
     {
-      whooshState = 1;
+      // go to the WHOOSH state.
+      currentState = WHOOSH_STATE;
     }
+    // Otherwise, if we have gone from HIGH to LOW...
     else if(newVal < WHOOSH_THRESHOLD && lastReadValue > WHOOSH_THRESHOLD)
     {
-      whooshState = 2;
+      // go to the RESET state.
+      currentState = RESET_STATE;
     }
+
+    // keep track of where we are!~
     lastReadValue = newVal;
   }
-  #ifdef DEBUG
+#ifdef DEBUG
+  // if we are debugging, flash the first LED Green if there is no connection.
   else
   {
     pixels.setPixelColor(0, pixels.Color(0, 255, 0));
     pixels.show();
     delay(100);
   }
-  #endif
-  
-  if(whooshState == 1)
+#endif
+
+  // Execute the current state of the system
+  if(currentState == WHOOSH_STATE)
   {
     candleWhooshState();
   }
-  else if(whooshState == 2)
+  else if(currentState == RESET_STATE)
   {
     resetState();
   }
