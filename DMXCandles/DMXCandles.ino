@@ -2,7 +2,8 @@
 #include <Thread.h>
 #include <DMXSerial.h>
 
-#define DMX_ADDRESS 500
+#define DEBUG 1
+#define DMX_ADDRESS 501
 
 #define WHOOSH_THRESHOLD 128
 
@@ -145,6 +146,7 @@ void loop()
     delay(100);
   }
   #endif
+  
   if(whooshState == 1)
   {
     candleWhooshState();
