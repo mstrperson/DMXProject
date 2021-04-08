@@ -2,6 +2,7 @@
 #include <Thread.h>
 #include <DMXSerial.h>
 
+// Comment/Uncomment this line for DEBUG mode
 #define DEBUG 1
 
 // Change this to match the DMX Address Number printed on the side of the Arduino box.
